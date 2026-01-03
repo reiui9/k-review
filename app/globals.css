@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
+  --primary: #00ff41; /* Matrix Green */
+  --secondary: #ffd700; /* Star Gold */
+  --muted: #333333;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: "DungGeunMo", "Courier New", monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Retro System Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  background: #000;
+  border-left: 2px solid #333;
+}
+::-webkit-scrollbar-thumb {
+  background: #00ff41;
+  border: 2px solid #000;
+}
+
+/* Retro CRT/Scanline Effect (Optional, subtle) */
+.earth-bg {
+  background-color: #000000;
+  background-image: linear-gradient(
+      rgba(0, 255, 65, 0.03) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: center top;
+  min-height: 100vh;
+}
+
+.earth-title {
+  font-family: var(--font-mono);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0px #00ff41;
+}
+
+/* Card Hover Effect */
+.retro-card {
+  transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+}
+.retro-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #00ff41;
+}
+
+.retro-border {
+  border: 2px solid #333;
+}
+.retro-border:hover {
+  border-color: #00ff41;
 }
