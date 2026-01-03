@@ -1,10 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-
 import type { Review } from './earth-data';
-import { loadDb, saveDb } from './storage';
-
 import { triggerReviewUpdate } from './useItemStats';
 
 export type ReviewSortKey = 'latest' | 'top';
@@ -14,23 +11,49 @@ export function useEarthReviews(itemId: string) {
 	const [reviewsRaw, setReviewsRaw] = useState<Review[]>([]);
 	const [myLikes, setMyLikes] = useState<Record<string, true>>({});
 	const [isLoaded, setIsLoaded] = useState(false);
+	const [total, setTotal] = useState(0);
 
+	// 1) Load reviews from API
 	useEffect(() => {
-		const db = loadDb();
-		setMyLikes(db.myLikes ?? {});
-		setReviewsRaw(db.reviews.filter((r) => r.itemId === itemId));
-		setIsLoaded(true);
-	}, [itemId]);
+		let active = true;
+		setIsLoaded(false);
 
-	const reviews = useMemo(() => {
-		const list = [...reviewsRaw];
-		if (sort === 'top') {
-			list.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt);
-			return list;
+		async function fetchReviews() {
+			try {
+				const params = new URLSearchParams({ itemId, sort, limit: '100' });
+				const res = await fetch(`/api/reviews?${params.toString()}`);
+				if (!res.ok) throw new Error('Failed to fetch');
+				const data = await res.json();
+				if (active) {
+					setReviewsRaw(data.reviews);
+					setTotal(data.total);
+
+					// Load my likes from local storage (client-only state)
+					// or handle it via API if we had user auth.
+					// For now, we keep "my likes" in local storage just to show red hearts.
+					const storedLikes = localStorage.getItem('earth-likes');
+					if (storedLikes) {
+						setMyLikes(JSON.parse(storedLikes));
+					}
+
+					setIsLoaded(true);
+				}
+			} catch (e) {
+				console.error(e);
+				if (active) setIsLoaded(true);
+			}
 		}
-		list.sort((a, b) => b.createdAt - a.createdAt);
-		return list;
-	}, [reviewsRaw, sort]);
+
+		fetchReviews();
+
+		return () => {
+			active = false;
+		};
+	}, [itemId, sort]);
+
+	// 2) Client-side sort is handled by API now, but we can double-check or rely on API.
+	// Actually the API returns sorted data. But let's keep the reviewsRaw as is.
+	const reviews = reviewsRaw;
 
 	const isLiked = useCallback(
 		(reviewId: string) => Boolean(myLikes[reviewId]),
@@ -38,61 +61,67 @@ export function useEarthReviews(itemId: string) {
 	);
 
 	const addReview = useCallback(
-		(input: { name: string; text: string; rating: number }) => {
-			const db = loadDb();
-			const id =
-				typeof crypto !== 'undefined' && 'randomUUID' in crypto
-					? crypto.randomUUID()
-					: `r_${Math.random().toString(36).slice(2)}`;
+		async (input: { name: string; text: string; rating: number }) => {
+			try {
+				const res = await fetch('/api/reviews', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						itemId,
+						name: input.name,
+						text: input.text,
+						rating: input.rating,
+					}),
+				});
+				if (!res.ok) throw new Error('Failed to post review');
 
-			const review: Review = {
-				id,
-				itemId,
-				name: input.name.trim(),
-				text: input.text.trim(),
-				rating: Math.max(1, Math.min(5, Math.round(input.rating))),
-				likes: 0,
-				createdAt: Date.now(),
-			};
+				const data = await res.json();
+				const newReview = data.review;
 
-			db.reviews = [review, ...db.reviews];
-			saveDb(db);
-
-			setMyLikes(db.myLikes ?? {});
-			setReviewsRaw(db.reviews.filter((r) => r.itemId === itemId));
-
-			// 통계 업데이트 트리거
-			triggerReviewUpdate();
+				setReviewsRaw((prev) => [newReview, ...prev]);
+				setTotal((n) => n + 1);
+				triggerReviewUpdate();
+			} catch (e) {
+				console.error(e);
+				alert('Failed to add review');
+			}
 		},
 		[itemId]
 	);
 
 	const toggleLike = useCallback(
-		(reviewId: string) => {
-			const db = loadDb();
-			db.myLikes ||= {};
+		async (reviewId: string) => {
+			const wasLiked = myLikes[reviewId];
+			// Optimistic update
+			setMyLikes((prev) => {
+				const next = { ...prev };
+				if (wasLiked) delete next[reviewId];
+				else next[reviewId] = true;
 
-			const idx = db.reviews.findIndex((r) => r.id === reviewId);
-			if (idx < 0) return;
+				localStorage.setItem('earth-likes', JSON.stringify(next));
+				return next;
+			});
 
-			const liked = Boolean(db.myLikes[reviewId]);
-			const next = { ...db.reviews[idx] };
+			setReviewsRaw((prev) =>
+				prev.map((r) => {
+					if (r.id !== reviewId) return r;
+					return { ...r, likes: Math.max(0, r.likes + (wasLiked ? -1 : 1)) };
+				})
+			);
 
-			if (liked) {
-				delete db.myLikes[reviewId];
-				next.likes = Math.max(0, next.likes - 1);
-			} else {
-				db.myLikes[reviewId] = true;
-				next.likes += 1;
+			try {
+				const res = await fetch('/api/reviews/like', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ reviewId, increment: !wasLiked }),
+				});
+				if (!res.ok) throw new Error('Failed to like');
+			} catch (e) {
+				console.error(e);
+				// Revert on error could be implemented here
 			}
-
-			db.reviews = db.reviews.map((r, i) => (i === idx ? next : r));
-			saveDb(db);
-
-			setMyLikes({ ...db.myLikes });
-			setReviewsRaw(db.reviews.filter((r) => r.itemId === itemId));
 		},
-		[itemId]
+		[myLikes]
 	);
 
 	return {
@@ -100,7 +129,7 @@ export function useEarthReviews(itemId: string) {
 		sort,
 		setSort,
 		reviews,
-		total: reviewsRaw.length,
+		total,
 		addReview,
 		toggleLike,
 		isLiked,

@@ -135,7 +135,7 @@ export default function Home() {
 				</div>
 
 				{/* Grid */}
-				<div className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5'>
+				<div className='grid gap-3 sm:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5'>
 					{!isLoaded ? (
 						<div className='col-span-full py-20 text-center text-white/50'>
 							시스템 데이터를 불러오는 중...
@@ -145,24 +145,24 @@ export default function Home() {
 							<button
 								key={item.id}
 								onClick={() => setSelectedItemId(item.id)}
-								className='group block text-left h-full border-2 border-[#333] bg-black px-4 py-6 transition-all hover:-translate-y-1 hover:border-[#00ff41] hover:shadow-[0_4px_0_0_#00ff41] focus:outline-none'
+								className='group block text-left h-full border-2 border-[#333] bg-black p-3 sm:px-4 sm:py-6 transition-all hover:-translate-y-1 hover:border-[#00ff41] hover:shadow-[0_4px_0_0_#00ff41] focus:outline-none'
 							>
 								<div className='flex flex-col items-center'>
 									<ItemAvatar
 										item={item}
 										size={80}
-										className='mb-4 group-hover:scale-110 transition-transform'
+										className='mb-2 sm:mb-4 w-[60px] h-[60px] sm:w-[80px] sm:h-[80px] group-hover:scale-110 transition-transform'
 									/>
-									<div className='text-lg font-bold tracking-tight text-white mb-1 group-hover:text-[#00ff41]'>
+									<div className='text-sm sm:text-lg font-bold tracking-tight text-white mb-1 group-hover:text-[#00ff41] text-center word-keep-all'>
 										{item.name}
 									</div>
-									<div className='text-xs text-white/50 mb-3 font-mono'>
+									<div className='text-[10px] sm:text-xs text-white/50 mb-2 sm:mb-3 font-mono'>
 										{item.category}
 									</div>
-									<div className='mb-2'>
-										<StarRating value={item.ratingAvg} size={16} />
+									<div className='mb-1 sm:mb-2'>
+										<StarRating value={item.ratingAvg} size={14} />
 									</div>
-									<div className='text-xs font-mono text-white/60'>
+									<div className='text-[10px] sm:text-xs font-mono text-white/60'>
 										{formatCount(item.reviewCount)} reviews
 									</div>
 								</div>
